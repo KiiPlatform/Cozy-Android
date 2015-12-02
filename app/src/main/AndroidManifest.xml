@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true"/>
 
     <application
             android:allowBackup="true"
@@ -23,6 +26,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".WifiPasswordActivity"/>
+        <activity android:name=".DeviceScanActivity" />
+        <activity android:name=".DeviceControlActivity" />
+        <service android:name=".BluetoothLeService"/>
     </application>
 
 </manifest>

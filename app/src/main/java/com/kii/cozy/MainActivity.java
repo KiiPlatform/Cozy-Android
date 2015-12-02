@@ -135,7 +135,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
             listOfProvider.clear();
             String providerName;
             for (int i = 0; i < wifiList.size(); i++) {
-				/* to get SSID and BSSID of wifi provider*/
+                                /* to get SSID and BSSID of wifi provider*/
                 providerName = (wifiList.get(i).SSID).toString()
                         + "\n" + (wifiList.get(i).BSSID).toString();
                 listOfProvider.add(providerName);
