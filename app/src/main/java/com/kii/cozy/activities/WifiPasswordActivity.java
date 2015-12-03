@@ -1,4 +1,7 @@
-package com.kii.cozy;
+package com.kii.cozy.activities;
+
+import com.kii.cozy.R;
+import com.kii.cozy.SharedPreferenceHandler;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -21,7 +24,7 @@ public class WifiPasswordActivity extends AppCompatActivity {
 
     EditText passwordEditText;
 
-    Intent intent;
+    Intent mIntent;
 
     CheckBox mCheckBox;
 
@@ -42,9 +45,9 @@ public class WifiPasswordActivity extends AppCompatActivity {
             Log.i(TAG, sharedPreferenceHandler.getWifiPassword());
         }
 
-        intent = this.getIntent();
+        mIntent = this.getIntent();
 
-        SSID.setText("SSID: " + intent.getStringExtra("SSID"));
+        SSID.setText("SSID: " + mIntent.getStringExtra("SSID"));
 
         next.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -71,8 +74,9 @@ public class WifiPasswordActivity extends AppCompatActivity {
                 }
 
                 Intent intent = new Intent(WifiPasswordActivity.this, DeviceScanActivity.class);
-                intent.putExtra("SSID", intent.getStringExtra("SSID"));
-                intent.putExtra("password", passwordEditText.getText().toString());
+                intent.putExtra("BSSID", mIntent.getStringExtra("BSSID"));
+                intent.putExtra("SSID", mIntent.getStringExtra("SSID"));
+                intent.putExtra("PASSWORD", passwordEditText.getText().toString());
                 startActivity(intent);
             }
         });

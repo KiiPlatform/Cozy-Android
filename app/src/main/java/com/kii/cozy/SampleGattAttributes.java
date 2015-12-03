@@ -25,7 +25,8 @@ public class SampleGattAttributes {
 
     public static final String COZY_CONFIG_SERVICE_UUID = "E20A39F4-73F5-4BC4-A12F-17D1AD666661";
 
-    public static final String COZY_CONFIG_CHARACTERISTIC_UUID = "08590F7E-DB05-467E-8757-72F6F66666D4";
+    public static final String COZY_CONFIG_CHARACTERISTIC_UUID
+            = "08590F7E-DB05-467E-8757-72F6F66666D4";
 
     public static String HEART_RATE_MEASUREMENT = "00002a37-0000-1000-8000-00805f9b34fb";
 

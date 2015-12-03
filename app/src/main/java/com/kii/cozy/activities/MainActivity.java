@@ -1,4 +1,6 @@
-package com.kii.cozy;
+package com.kii.cozy.activities;
+
+import com.kii.cozy.R;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -68,6 +70,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
             public void onItemClick(AdapterView<?> parent, View view,
                     final int position, long id) {
                 Intent intent = new Intent(MainActivity.this, WifiPasswordActivity.class);
+                intent.putExtra("BSSID", wifiList.get(position).BSSID);
                 intent.putExtra("SSID", wifiList.get(position).SSID);
                 startActivity(intent);
 
@@ -140,7 +143,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
                         + "\n" + (wifiList.get(i).BSSID).toString();
                 listOfProvider.add(providerName);
             }
-			/*setting list of all wifi provider in a List*/
+                        /*setting list of all wifi provider in a List*/
             adapter = new ListAdapter(MainActivity.this, listOfProvider);
             mListView.setAdapter(adapter);
 
