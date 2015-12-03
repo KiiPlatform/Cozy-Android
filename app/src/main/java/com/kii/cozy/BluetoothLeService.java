@@ -274,6 +274,14 @@ public class BluetoothLeService extends Service {
         mBluetoothGatt = null;
     }
 
+    public void writeCharacteristic(BluetoothGattCharacteristic characteristic){
+        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
+            Log.i(TAG, "BluetoothAdapter not initialized");
+            return;
+        }
+        mBluetoothGatt.writeCharacteristic(characteristic);
+    }
+
     /**
      * Request a read on a given {@code BluetoothGattCharacteristic}. The read result is reported
      * asynchronously through the {@code BluetoothGattCallback#onCharacteristicRead(android.bluetooth.BluetoothGatt,

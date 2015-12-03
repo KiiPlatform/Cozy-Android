@@ -71,6 +71,8 @@ public class WifiPasswordActivity extends AppCompatActivity {
                 }
 
                 Intent intent = new Intent(WifiPasswordActivity.this, DeviceScanActivity.class);
+                intent.putExtra("SSID", intent.getStringExtra("SSID"));
+                intent.putExtra("password", passwordEditText.getText().toString());
                 startActivity(intent);
             }
         });

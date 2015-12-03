@@ -16,7 +16,12 @@
 
 package com.kii.cozy;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import android.app.Activity;
+import android.bluetooth.BluetoothClass;
+import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.BroadcastReceiver;
@@ -38,6 +43,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * For a given BLE device, this Activity provides the user interface to connect, display data,
@@ -68,6 +74,8 @@ public class DeviceControlActivity extends Activity {
     private ExpandableListView mGattServicesList;
 
     private BluetoothLeService mBluetoothLeService;
+
+    public BluetoothGattCharacteristic mWriteCharacteristic;
 
     // Code to manage Service lifecycle.
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -151,6 +159,21 @@ public class DeviceControlActivity extends Activity {
                             mNotifyCharacteristic = characteristic;
                             mBluetoothLeService.setCharacteristicNotification(
                                     characteristic, true);
+                        }
+                        if (((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_WRITE) |
+                                (charaProp & BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) > 0) {
+                            // writing characteristic functions
+                            mWriteCharacteristic = characteristic;
+                            JSONObject jsonObject = new JSONObject();
+                            try {
+                                jsonObject.put("SSID", "SSID");
+                                jsonObject.put("password", "password");
+                            }catch (Exception e){
+
+                            }
+                            byte[] strBytes = jsonObject.toString().getBytes();
+                            mWriteCharacteristic.setValue(strBytes);
+                            mBluetoothLeService.writeCharacteristic(mWriteCharacteristic);
                         }
                         return true;
                     }

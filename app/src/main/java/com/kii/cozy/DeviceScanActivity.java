@@ -1,15 +1,23 @@
 package com.kii.cozy;
 
+import org.json.JSONObject;
+
 import android.app.Activity;
 import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -21,14 +29,40 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class DeviceScanActivity extends ListActivity {
+
+    public final static String ACTION_GATT_CONNECTED =
+            "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
+
+    public final static String ACTION_GATT_DISCONNECTED =
+            "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
+
+    public final static String ACTION_GATT_SERVICES_DISCOVERED =
+            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
+
+    public final static String ACTION_DATA_AVAILABLE =
+            "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
+
+    public final static String EXTRA_DATA =
+            "com.example.bluetooth.le.EXTRA_DATA";
+
+    private static final String TAG = DeviceScanActivity.class.getSimpleName();
+
+    private static final int STATE_DISCONNECTED = 0;
+
+    private static final int STATE_CONNECTING = 1;
+
+    private static final int STATE_CONNECTED = 2;
 
     private static final int REQUEST_ENABLE_BT = 1;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
+
+    public BluetoothGattCharacteristic mWriteCharacteristic;
 
     private LeDeviceListAdapter mLeDeviceListAdapter;
 
@@ -39,6 +73,63 @@ public class DeviceScanActivity extends ListActivity {
     private Handler mHandler;
 
     private UUID[] mUUIDs = null;
+
+    private String mBluetoothDeviceAddress;
+
+    private BluetoothGatt mBluetoothGatt;
+
+    private int mConnectionState = STATE_DISCONNECTED;
+
+    // Implements callback methods for GATT events that the app cares about.  For example,
+    // connection change and services discovered.
+    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            String intentAction;
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                intentAction = ACTION_GATT_CONNECTED;
+                mConnectionState = STATE_CONNECTED;
+//                broadcastUpdate(intentAction);
+                Log.i(TAG, "Connected to GATT server.");
+                // Attempts to discover services after successful connection.
+                Log.i(TAG, "Attempting to start service discovery:" +
+                        mBluetoothGatt.discoverServices());
+
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                intentAction = ACTION_GATT_DISCONNECTED;
+                mConnectionState = STATE_DISCONNECTED;
+                Log.i(TAG, "Disconnected from GATT server.");
+//                broadcastUpdate(intentAction);
+            }
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+//                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
+            } else {
+                Log.w(TAG, "onServicesDiscovered received: " + status);
+            }
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt,
+                BluetoothGattCharacteristic characteristic,
+                int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+//                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            }
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt,
+                BluetoothGattCharacteristic characteristic) {
+//            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+        }
+    };
+
+    private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
+            new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
 
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
@@ -157,12 +248,17 @@ public class DeviceScanActivity extends ListActivity {
         final Intent intent = new Intent(this, DeviceControlActivity.class);
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_NAME, device.getName());
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+        mBluetoothDeviceAddress = device.getAddress();
         if (mScanning) {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mScanning = false;
         }
-        startActivity(intent);
+//        startActivity(intent);
+        if (connect(device.getAddress()) == true) {
+            fetchServices();
+        }
     }
+
 
     private void scanLeDevice(final boolean enable) {
         if (enable) {
@@ -179,12 +275,96 @@ public class DeviceScanActivity extends ListActivity {
 
             mScanning = true;
             mUUIDs = new UUID[]{UUID.fromString(SampleGattAttributes.COZY_CONFIG_SERVICE_UUID)};
-            mBluetoothAdapter.startLeScan( mLeScanCallback);
+            mBluetoothAdapter.startLeScan(mUUIDs, mLeScanCallback);
         } else {
             mScanning = false;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
         }
         invalidateOptionsMenu();
+    }
+
+    /**
+     * Connects to the GATT server hosted on the Bluetooth LE device.
+     *
+     * @return Return true if the connection is initiated successfully. The connection result
+     * is reported asynchronously through the
+     * {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int,
+     * int)}
+     * callback.
+     */
+    public boolean connect(final String address) {
+        if (mBluetoothAdapter == null || mBluetoothDeviceAddress == null) {
+            Log.w(TAG, "BluetoothAdapter not initialized or unspecified address.");
+            return false;
+        }
+
+        // Previously connected device.  Try to reconnect.
+        if (mBluetoothGatt != null) {
+            Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
+            if (mBluetoothGatt.connect()) {
+                mConnectionState = STATE_CONNECTING;
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+        if (device == null) {
+            Log.w(TAG, "Device not found.  Unable to connect.");
+            return false;
+        }
+        // We want to directly connect to the device, so we are setting the autoConnect
+        // parameter to false.
+        mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
+        Log.d(TAG, "Trying to create a new connection.");
+        mBluetoothDeviceAddress = address;
+        mConnectionState = STATE_CONNECTING;
+        return true;
+    }
+
+    public void writeCharacteristic(BluetoothGattCharacteristic characteristic) {
+        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
+            Log.i(TAG, "BluetoothAdapter not initialized");
+            return;
+        }
+        mBluetoothGatt.writeCharacteristic(characteristic);
+    }
+
+    public void fetchServices() {
+        if (mBluetoothGatt == null) {
+            return;
+        }
+        List<BluetoothGattService> gattServices = mBluetoothGatt.getServices();
+
+        for (BluetoothGattService gattService : gattServices) {
+            List<BluetoothGattCharacteristic> gattCharacteristics =
+                    gattService.getCharacteristics();
+            // Loops through available Characteristics.
+            for (BluetoothGattCharacteristic gattCharacteristic : gattCharacteristics) {
+                if (gattCharacteristic.toString()
+                        .equals(SampleGattAttributes.COZY_CONFIG_CHARACTERISTIC_UUID)) {
+                    final int charaProp = gattCharacteristic.getProperties();
+                    if (((gattCharacteristic.getProperties()
+                            & BluetoothGattCharacteristic.PROPERTY_WRITE) |
+                            (charaProp & BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE))
+                            > 0) {
+                        // writing characteristic functions
+                        JSONObject jsonObject = new JSONObject();
+                        try {
+                            jsonObject.put("SSID", "SSID");
+                            jsonObject.put("password", "password");
+                        } catch (Exception e) {
+
+                        }
+                        byte[] strBytes = jsonObject.toString().getBytes();
+                        gattCharacteristic.setValue(strBytes);
+                        mBluetoothGatt.writeCharacteristic(gattCharacteristic);
+                    }
+                }
+            }
+
+        }
     }
 
     static class ViewHolder {
